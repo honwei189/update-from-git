@@ -1,0 +1,3 @@
+command: go buildfile: update-from-git.goPermission: +x# path & new file name
+Output: run_Output: false
+#execute: cmd /c move update-from-git.exe D:\Windows\tools\update.exeexecute:
