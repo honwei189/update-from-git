@@ -3,7 +3,7 @@
  * @version           : "1.0.0"
  * @creator           : Gordon Lim <honwei189@gmail.com>
  * @created           : 26/05/2020 13:28:48
- * @last modified     : 29/05/2020 22:32:08
+ * @last modified     : 02/06/2020 21:04:40
  * @last modified by  : Gordon Lim <honwei189@gmail.com>
  */
 
@@ -38,6 +38,7 @@ var lastCommit string
 var lastUpdateDateTime string
 var lastUpdateDateOnly string
 var lastUpdateTimeOnly string
+var save string
 var wd string
 var today string
 var username string
@@ -84,7 +85,7 @@ func main() {
 	app.Name = "update-from-git"
 	app.EnableBashCompletion = true
 	app.Usage = "\n\n\t\t\t" + color.FgLightCyan.Render("Get latest files from GIT and allows to skip update certains file")
-	app.UsageText = color.FgRed.Render(app.Name + " command [command options] [arguments...]\n\n\t\t\texample:\n\n\t\t\t" + app.Name + "\n\n\t\t\t" + app.Name + " log\n\n\t\t\t" + app.Name + " log 2020-01-24\n\n\t\t\t" + app.Name + " log 2020-01-24 2020-04-02\n\n\t\t\t" + app.Name + " -d .git2")
+	app.UsageText = color.FgRed.Render(app.Name + " command [command options] [arguments...]\n\n\t\t\texample:\n\n\t\t\t" + app.Name + "\n\n\t\t\t" + app.Name + " log\n\n\t\t\t" + app.Name + " log 2020-01-24\n\n\t\t\t" + app.Name + " log 2020-01-24 2020-04-02\n\n\t\t\t" + app.Name + " changed\n\n\t\t\t" + app.Name + " changed 2020-01-24\n\n\t\t\t" + app.Name + " changed 2020-01-24 2020-04-02\n\n\t\t\t" + app.Name + " --save=log.txt log\n\n\t\t\t" + app.Name + " --save=log.txt log 2020-01-24 2020-04-02\n\n\t\t\t" + app.Name + " -d .git2")
 	app.Version = color.Yellow.Render("1.0.0")
 	app.Compiled = time.Now()
 	app.Authors = []cli.Author{
@@ -230,6 +231,7 @@ func main() {
 				// out, _ := utilities.CmdExec("git", "--git-dir=" + gitDir, "whatchanged", "-1")
 
 				// color.Info.Println(out)
+
 				changeLog()
 				return nil
 			},
@@ -248,6 +250,12 @@ func main() {
 			Value:       "",
 			Usage:       color.FgLightGreen.Render("GIT repository directory. Default : .git"),
 			Destination: &gitDir,
+		},
+		cli.StringFlag{
+			Name:        "save, s",
+			Value:       "",
+			Usage:       color.FgLightGreen.Render("Save changelog or changed files list to specified file"),
+			Destination: &save,
 		},
 		// cli.StringFlag{
 		// 	Name:        "repo, r",
@@ -302,23 +310,52 @@ func changeLog() {
 
 	logs, _ := utilities.CmdRun("git", "log", "--pretty=format:%B", "--abbrev-commit", "--date=relative", "origin", "master", "--since=\""+_date+" 12am\"", "--until=\""+_enddate+" 11:59pm\"")
 
-	_date = ""
-	_enddate = ""
-	startdate = ""
-	enddate = ""
-
 	if len(logs) > 0 {
 		i := 1
+		writeLog := false
+		logContent := ""
+
+		if len(save) > 0 {
+			writeLog = true
+
+			if startdate == enddate {
+				logContent += _date
+			} else {
+				logContent += "From " + _date
+
+				if len(enddate) > 0 {
+					logContent += " to " + _enddate
+				}
+			}
+
+			logContent = fmt.Sprintf("Change log [ %s ]\r\n", logContent)
+			logContent += fmt.Sprintf("----------------------------------------------------------------------\r\n")
+		}
+
 		for _, line := range logs {
 			if strings.TrimSpace(line) != "" {
 				fmt.Print(i)
 				fmt.Println(". " + line)
+
+				if writeLog {
+					logContent += fmt.Sprintf("%d. %s\r\n", i, line)
+				}
 				i++
 			}
 		}
+
+		if writeLog && len(logContent) > 0 {
+			utilities.FilePutContents(save, logContent)
+		}
+		logContent = ""
 	} else {
 		fmt.Printf("\n\t\t\t%s\n", color.Red.Render("No record found"))
 	}
+
+	_date = ""
+	_enddate = ""
+	startdate = ""
+	enddate = ""
 }
 
 func changedFiles() {
@@ -356,11 +393,6 @@ func changedFiles() {
 
 	logs, _ := utilities.CmdRun("git", "log", "--pretty=format:%H", "--abbrev-commit", "--date=relative", "origin", "master", "--since=\""+_date+" 12am\"", "--until=\""+_enddate+" 11:59pm\"")
 
-	_date = ""
-	_enddate = ""
-	startdate = ""
-	enddate = ""
-
 	i := 1
 	highlight := 0
 	code := make(map[string]string)
@@ -375,73 +407,126 @@ func changedFiles() {
 	code["R097"] = "Move"
 	code["R100"] = "Move"
 
-	for _, hash := range logs {
-		logs, _ := utilities.CmdRun("git", "log", "-1", "--pretty=format:%cd %n%B%n-------------------------------------------------------------------------------", "--abbrev-commit", "--date=iso", "--name-status", hash)
-		fmt.Print(i)
-		fmt.Print(". ")
-		// fmt.Println(". " + logs)
+	if len(logs) > 0 {
+		writeLog := false
+		logContent := ""
 
-		highlight = 0
+		if len(save) > 0 {
+			writeLog = true
 
-		for _, line := range logs {
-			if strings.TrimSpace(line) != "" {
-				if highlight == 1 {
-					// str := strings.Split(strings.TrimSpace(line), " ")
-					// str1 := "Split   String on \nwhite    \tspaces."
+			if startdate == enddate {
+				logContent += _date
+			} else {
+				logContent += "From " + _date
 
-					// re := regexp.MustCompile(`\S+`)
+				if len(enddate) > 0 {
+					logContent += " to " + _enddate
+				}
+			}
 
-					// // fmt.Printf("Pattern: %v\n", re.String()) // Print Pattern
+			logContent = fmt.Sprintf("Change log [ %s ]\r\n", logContent)
+			logContent += fmt.Sprintf("----------------------------------------------------------------------\r\n")
+		}
 
-					// // fmt.Printf("String contains any match: %v\n", re.MatchString(line)) // True
+		for _, hash := range logs {
+			logs, _ := utilities.CmdRun("git", "log", "-1", "--pretty=format:%cd %n%B%n-------------------------------------------------------------------------------", "--abbrev-commit", "--date=iso", "--name-status", hash)
+			fmt.Print(i)
+			fmt.Print(". ")
+			// fmt.Println(". " + logs)
 
-					// submatchall := re.FindAllString(line, -1)
-					// for _, element := range submatchall {
-					// 	fmt.Println(element)
-					// }
+			if writeLog {
+				logContent += fmt.Sprintf("%d.", i)
+			}
 
-					str := utilities.RegSplit(line, `\S+`)
+			highlight = 0
 
-					if len(str) >= 1 {
-						// color.BgBlue.Println(str[0])
+			for _, line := range logs {
+				if strings.TrimSpace(line) != "" {
+					if highlight == 1 {
+						// str := strings.Split(strings.TrimSpace(line), " ")
+						// str1 := "Split   String on \nwhite    \tspaces."
 
-						fmt.Printf("%s\t\t%s\n", color.Red.Render(code[strings.ToUpper(str[0])]), color.Success.Render(str[1]))
-					}
-				} else {
-					if line == "-------------------------------------------------------------------------------" {
-						highlight = 1
-						color.LightMagenta.Println(line)
+						// re := regexp.MustCompile(`\S+`)
+
+						// // fmt.Printf("Pattern: %v\n", re.String()) // Print Pattern
+
+						// // fmt.Printf("String contains any match: %v\n", re.MatchString(line)) // True
+
+						// submatchall := re.FindAllString(line, -1)
+						// for _, element := range submatchall {
+						// 	fmt.Println(element)
+						// }
+
+						str := utilities.RegSplit(line, `\S+`)
+
+						if len(str) >= 1 {
+							// color.BgBlue.Println(str[0])
+
+							fmt.Printf("%s\t\t%s\n", color.Red.Render(code[strings.ToUpper(str[0])]), color.Success.Render(str[1]))
+
+							if writeLog {
+								logContent += fmt.Sprintf("%s\t\t%s\n", code[strings.ToUpper(str[0])], str[1])
+							}
+						}
 					} else {
-						re := regexp.MustCompile("((19|20)\\d\\d)-(0?[1-9]|1[012])-(0?[1-9]|[12][0-9]|3[01]) ([0-9]{2}):([0-9]{2}):([0-9]{2}) [+-][0-9]{4}")
-
-						if re.MatchString(line) {
-							fmt.Println(utilities.ConvertUTCDateTime(strings.TrimSpace(line)))
-							fmt.Println()
+						if line == "-------------------------------------------------------------------------------" {
+							highlight = 1
+							color.LightMagenta.Println(line)
+							if writeLog {
+								logContent += fmt.Sprintf("%s\n", line)
+							}
 						} else {
-							// _l := utilities.SplitLines(line)
+							re := regexp.MustCompile("((19|20)\\d\\d)-(0?[1-9]|1[012])-(0?[1-9]|[12][0-9]|3[01]) ([0-9]{2}):([0-9]{2}):([0-9]{2}) [+-][0-9]{4}")
 
-							// fmt.Println(_l)
+							if re.MatchString(line) {
+								fmt.Println(utilities.ConvertUTCDateTime(strings.TrimSpace(line)))
+								fmt.Println()
+								if writeLog {
+									logContent += fmt.Sprintf("%s\r\n\r\n", utilities.ConvertUTCDateTime(strings.TrimSpace(line)))
+								}
+							} else {
+								// _l := utilities.SplitLines(line)
 
-							// if len(_l) == 1 {
-							// 	fmt.Println(line)
-							// } else {
-							// 	for _, t := range _l {
-							// 		fmt.Printf("- %s\n", strings.TrimSpace(t))
-							// 	}
-							// }
+								// fmt.Println(_l)
 
-							// _l = nil
+								// if len(_l) == 1 {
+								// 	fmt.Println(line)
+								// } else {
+								// 	for _, t := range _l {
+								// 		fmt.Printf("- %s\n", strings.TrimSpace(t))
+								// 	}
+								// }
 
-							fmt.Println(line)
+								// _l = nil
+
+								fmt.Println(line)
+								if writeLog {
+									logContent += fmt.Sprintf("%s\r\n", line)
+								}
+							}
 						}
 					}
 				}
 			}
-		}
-		fmt.Printf("\n\n\n\n")
+			fmt.Printf("\n\n\n\n")
+			if writeLog {
+				logContent += fmt.Sprintf("\n\n\n\n")
+			}
 
-		i++
+			i++
+		}
+
+		if writeLog && len(logContent) > 0 {
+			utilities.FilePutContents(save, logContent)
+		}
+
+		logContent = ""
 	}
+
+	_date = ""
+	_enddate = ""
+	startdate = ""
+	enddate = ""
 }
 
 func changedDates() {
@@ -693,7 +778,7 @@ func userLogin() {
 	if gitlocalcred == "" || strings.Contains(gitlocalcred, "file") {
 		_giturl := strings.Split(giturl, "/")
 
-		color.BgRed.Println("Authenticate for " + _giturl[0] + "//" + _giturl[2])
+		color.BgRed.Println("Authentication for " + _giturl[0] + "//" + _giturl[2])
 		fmt.Println()
 
 		fmt.Print("Username: ")
