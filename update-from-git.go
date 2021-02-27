@@ -752,6 +752,17 @@ func update() {
 				os.Exit(0)
 			}
 
+			if utilities.FileExists(".gitmodules") {
+				_, e := utilities.CmdExec("git", "submodule", "foreach", "git", "pull", "origin", "master")
+
+				if e != nil {
+					// log.Fatal(e)
+					userReset()
+					color.Error.Block(string(e.Error()))
+					os.Exit(0)
+				}
+			}
+
 			changeLog()
 			userReset()
 		}
