@@ -308,7 +308,9 @@ func changeLog() {
 	color.LightGreen.Println(" ]")
 	fmt.Println("----------------------------------------------------------------------")
 
-	logs, _ := utilities.CmdRun("git", "log", "--pretty=format:%B", "--abbrev-commit", "--date=relative", "origin", "master", "--since=\""+_date+" 12am\"", "--until=\""+_enddate+" 11:59pm\"")
+	// logs, _ := utilities.CmdRun("git", "log", "--pretty=format:%B", "--abbrev-commit", "--date=relative", "origin", "master", "--since=\""+_date+" 12am\"", "--until=\""+_enddate+" 11:59pm\"")
+
+	logs, _ := utilities.CmdRun("git", "log", "--pretty=format:%B", "--abbrev-commit", "--date=relative", "--since=\""+_date+" 12am\"", "--until=\""+_enddate+" 11:59pm\"")
 
 	if len(logs) > 0 {
 		i := 1
